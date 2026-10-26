@@ -818,7 +818,7 @@ class PreferenceManager2 @Inject constructor(
 
     val showDeckLayout = preference(
         key = booleanPreferencesKey(name = "show_deck_layout"),
-        defaultValue = false,
+        defaultValue = true,
     )
 
     val enableLabelInDock = preference(
