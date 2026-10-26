@@ -33,6 +33,9 @@ class LawndeckManager(private val context: Context) {
 
     private val launcher = context.launcherNullable ?: LawnchairLauncher.instance?.launcher
 
+    // iOS style: place every app on the home pages one by one and leave folders to the user.
+    private val autoCreateFolders = false
+
     suspend fun enableLawndeck(
         onProgress: ((String) -> Unit)? = null,
     ) = withContext(Dispatchers.IO) {
@@ -108,6 +111,20 @@ class LawndeckManager(private val context: Context) {
         onProgress?.invoke("Categorizing apps...")
 
         val validApps = apps.mapNotNull { it as? AppInfo }
+
+        if (!autoCreateFolders) {
+            onProgress?.invoke("Adding apps to home screen...")
+            val installQueue = ItemInstallQueue.INSTANCE.get(context)
+            validApps
+                .sortedBy { it.title?.toString()?.lowercase(Locale.getDefault()) }
+                .forEach { installQueue.queueItem(it.targetPackage, it.user) }
+            // Give ItemInstallQueue time to process
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                onComplete?.invoke()
+            }, 800)
+            return
+        }
+
         val finalCategorizedApps = categorizeAppsWithSystemAndGoogle(validApps, context)
 
         onProgress?.invoke("Adding apps to workspace...")
@@ -184,6 +201,11 @@ class LawndeckManager(private val context: Context) {
         modelWriter: com.android.launcher3.model.ModelWriter,
         dataModel: com.android.launcher3.model.BgDataModel,
     ) {
+        if (!autoCreateFolders) {
+            ItemInstallQueue.INSTANCE.get(context).queueItem(packageName, user)
+            return
+        }
+
         // Get app info from LauncherApps directly (app might not be in all apps list yet)
         val launcherApps = context.getSystemService(android.content.pm.LauncherApps::class.java)
             ?: return
